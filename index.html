@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>貓咪大作戰</title>
+  <style>
+    body {
+      background-image: url('starry_sky.jpg'); /* 替換成你的星空圖片 */
+      background-size: cover;
+      background-repeat: no-repeat;
+      background-color: black;
+      overflow: hidden;
+      margin: 0;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+    }
+    #cat {
+      position: absolute;
+      width: 50px;
+      height: 50px;
+      background-image: url('cat.png'); /* 替換成你的貓咪圖片 */
+      background-size: cover;
+      left: 50%;
+      top: 50%;
+      transform: translate(-50%, -50%); /* 初始置中 */
+      transition: transform 0.1s linear; /* 旋轉動畫 */
+    }
+    .dog {
+      position: absolute;
+      width: 50px;
+      height: 50px;
+      background-image: url('dog.png'); /* 替換成你的狗狗圖片 */
+      background-size: cover;
+    }
+    #earth {
+      position: absolute;
+      width: 200px;
+      height: 200px;
+      background-image: url('earth.png'); /* 替換成你的地球圖片 */
+      background-size: cover;
+      border-radius: 50%;
+      left: 50%;
+      top: 50%;
+      transform: translate(-50%, -50%);
+      transition: width 0.5s, height 0.5s;
+    }
+    #score {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      font-size: 24px;
+      font-family: sans-serif;
+      color: white;
+    }
+    #gameOver {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      font-size: 48px;
+      font-family: sans-serif;
+      color: white;
+      display: none;
+      text-align: center;
+    }
+    #restartButton {
+      position: absolute;
+      top: 65%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      font-size: 24px;
+      font-family: sans-serif;
+      display: none;
+    }
+    #musicControl {
+        position: absolute;
+        top: 10px;
+        right: 10px;
+        font-size: 24px;
+        font-family: sans-serif;
+        color: white;
+        cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+  <div id="cat"></div>
+  <div id="earth"></div>
+  <div id="score">分數: 0</div>
+  <div id="gameOver">
+      恭喜你吃掉了地球！<br>最終分數: <span id="finalScore"></span>
+  </div>
+  <button id="restartButton">再玩一次</button>
+  <div id="musicControl">🎵 開</div>
+
+  <audio id="bgMusic" loop>
+    <source src="bgm.mp3" type="audio/mpeg">  你的瀏覽器不支援 HTML5 音訊播放。
+  </audio>
+
+  <audio id="eatSound">
+    <source src="eat.mp3" type="audio/mpeg"> 你的瀏覽器不支援 HTML5 音訊播放。
+  </audio>
+
+  <script>
+    const cat = document.getElementById('cat');
+    const earth = document.getElementById('earth');
+    const scoreDisplay = document.getElementById('score');
+    const gameOverDisplay = document.getElementById('gameOver');
+    const finalScoreDisplay = document.getElementById('finalScore');
+    const restartButton = document.getElementById('restartButton');
+    const bgMusic = document.getElementById('bgMusic');
+    const eatSound = document.getElementById('eatSound');
+    const musicControl = document.getElementById('musicControl');
+
+    let score = 0;
+    let catSize = 50;
+    let earthSize = 200;
+    let isGameOver = false;
+    let isMusicPlaying = false;
+
+    // 移動相關變數
+    let catX = window.innerWidth / 2 - catSize / 2;
+    let catY = window.innerHeight / 2 - catSize / 2;
+    const speed = 5;
+    let keysPressed = {};
+
+    // 貓咪面向方向 1: 右, -1: 左
+    let catFacing = 1;
+
+    // 遊戲開始時生成狗狗
+    for (let i = 0; i < 10; i++) {
+      createDog();
+    }
+
+    // 更新貓咪位置和麵向
+    function updateCat() {
+        if (keysPressed['w'] || keysPressed['ArrowUp']) catY -= speed;
+        if (keysPressed['s'] || keysPressed['ArrowDown']) catY += speed;
+        if (keysPressed['a'] || keysPressed['ArrowLeft']) {
+            catX -= speed;
+            catFacing = -1; // 向左
+        }
+        if (keysPressed['d'] || keysPressed['ArrowRight']) {
+            catX += speed;
+            catFacing = 1; // 向右
+        }
+
+        // 限制貓咪在螢幕範圍內
+        const maxX = window.innerWidth - catSize;
+        const maxY = window.innerHeight - catSize;
+        catX = Math.max(0, Math.min(catX, maxX));
+        catY = Math.max(0, Math.min(catY, maxY));
+
+        cat.style.left = catX + 'px';
+        cat.style.top = catY + 'px';
+
+        // 更新貓咪的旋轉角度
+        cat.style.transform = `translate(-50%, -50%) scaleX(${catFacing})`;
+
+        if (!isGameOver) {
+            checkCollisions();
+            requestAnimationFrame(updateCat);
+        }
+    }
+    requestAnimationFrame(updateCat);
+
+    // 監聽按鍵按下和放開事件
+    document.addEventListener('keydown', (event) => {
+        keysPressed[event.key] = true;
+    });
+
+    document.addEventListener('keyup', (event) => {
+        keysPressed[event.key] = false;
+    });
+
+    // 產生隨機位置的狗狗
+    function createDog() {
+        if (isGameOver) return;
+      const dog = document.createElement('div');
+      dog.classList.add('dog');
+      document.body.appendChild(dog);
+
+      const maxX = window.innerWidth - 50;
+      const maxY = window.innerHeight - 50;
+
+      const x = Math.random() * maxX;
+      const y = Math.random() * maxY;
+
+      dog.style.left = x + 'px';
+      dog.style.top = y + 'px';
+    }
+
+    // 碰撞偵測
+    function checkCollisions() {
+      const dogs = document.querySelectorAll('.dog');
+      dogs.forEach((dog) => {
+        if (isColliding(cat, dog)) {
+          document.body.removeChild(dog);
+          score++;
+          scoreDisplay.textContent = '分數: ' + score;
+          catSize += 5;
+          cat.style.width = catSize + 'px';
+          cat.style.height = catSize + 'px';
+
+          eatSound.currentTime = 0;
+          eatSound.play();
+
+          createDog();
+
+          if (catSize >= earthSize) {
+            gameOver();
+          }
+        }
+      });
+    }
+
+    // 判斷兩個元素是否碰撞
+    function isColliding(element1, element2) {
+      const rect1 = element1.getBoundingClientRect();
+      const rect2 = element2.getBoundingClientRect();
+
+      return !(
+        rect1.top > rect2.bottom ||
+        rect1.right < rect2.left ||
+        rect1.bottom < rect2.top ||
+        rect1.left > rect2.right
+      );
+    }
+
+    // 遊戲結束
+    function gameOver() {
+        isGameOver = true;
+        gameOverDisplay.style.display = 'block';
+        finalScoreDisplay.textContent = score;
+        restartButton.style.display = 'block';
+        earthSize = 0;
+        earth.style.width = earthSize + 'px';
+        earth.style.height = earthSize + 'px';
+        setTimeout(() => {
+            document.body.removeChild(earth);
+        }, 500);
+    }
+
+    // 重新開始遊戲
+    restartButton.addEventListener('click', () => {
+        isGameOver = false;
+        score = 0;
+        catSize = 50;
+        earthSize = 200;
+        scoreDisplay.textContent = '分數: ' + score;
+        cat.style.width = catSize + 'px';
+        cat.style.height = catSize + 'px';
+        earth.style.width = earthSize + 'px';
+        earth.style.height = earthSize + 'px';
+        catX = window.innerWidth / 2 - catSize / 2;
+        catY = window.innerHeight / 2 - catSize / 2;
+        gameOverDisplay.style.display = 'none';
+        restartButton.style.display = 'none';
+
+        const dogs = document.querySelectorAll('.dog');
+        dogs.forEach((dog) => {
+            document.body.removeChild(dog);
+        });
+
+        for (let i = 0; i < 10; i++) {
+          createDog();
+        }
+
+        if(!document.getElementById('earth')){
+            document.body.appendChild(earth);
+        }
+
+        requestAnimationFrame(updateCat);
+    });
+
+    // 音樂控制
+    musicControl.addEventListener('click', () => {
+        if (isMusicPlaying) {
+            bgMusic.pause();
+            musicControl.textContent = '🎵 關';
+        } else {
+            bgMusic.play();
+            musicControl.textContent = '🎵 開';
+        }
+        isMusicPlaying = !isMusicPlaying;
+    });
+  </script>
+</body>
+</html>
